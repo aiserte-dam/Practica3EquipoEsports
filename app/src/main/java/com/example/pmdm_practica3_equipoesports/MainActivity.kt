@@ -32,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pmdm_practica3_equipoesports.ui.theme.PMDMPractica3EquipoEsportsTheme
+import com.example.pmdm_practica3_equipoesports.ui.theme.PantallaEquipo
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +48,7 @@ class MainActivity : ComponentActivity() {
 
 // ---------- PANTALLA PRINCIPAL (requisitos 1, 2, 6, 7) ----------
 @Composable
-fun PantallaEquipo() {
+fun PantallaEquipoOld() {
     Column(
         modifier = Modifier
             .fillMaxSize()                       // ocupa toda la pantalla
