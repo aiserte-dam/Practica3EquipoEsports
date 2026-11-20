@@ -1,15 +1,13 @@
-package com.example.pmdm_practica3_equipoesports.ui.theme
+package com.example.pmdm_practica3_equipoesports.ui
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -17,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,12 +31,18 @@ import androidx.compose.ui.unit.sp
 import com.example.pmdm_practica3_equipoesports.data.Jugador
 import com.example.pmdm_practica3_equipoesports.data.JugadoresEjemplo
 import com.example.pmdm_practica3_equipoesports.ui.theme.PMDMPractica3EquipoEsportsTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 
-
+import androidx.compose.runtime.setValue
 @Composable
 fun PantallaEquipo() {
     // Lista observable: al añadir/borrar/editar, la UI se recompone sola
     val jugadores = JugadoresEjemplo.jugadores
+    // null = sin diálogo, un jugador = mostrar diálogo para ese jugador
+    var jugadorAEliminar by remember { mutableStateOf<Jugador?>(null) }
 
     Column(
         modifier = Modifier
@@ -54,13 +59,37 @@ fun PantallaEquipo() {
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 24.dp, bottom = 16.dp)
         )
+        // ... Text("TEAM TITANS") ...
+
+        FormularioJugador(
+            onAnadirJugador = { nombre, nickname, rol ->
+                // id único: el mayor actual + 1 (nunca size + 1)
+                val nuevoId = (jugadores.maxOfOrNull { it.id } ?: 0) + 1
+                jugadores.add(Jugador(nuevoId, nombre, nickname, rol))
+            }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
 
         // weight(1f): la lista ocupa el espacio restante (y deja sitio
         // al formulario que añadiremos en el Bloque 2)
         ListaJugadores(
             jugadores = jugadores,
+            onEliminar = { jugador -> jugadorAEliminar = jugador },  // abre el diálogo
             modifier = Modifier.weight(1f)
         )
+
+        // El diálogo existe solo mientras jugadorAEliminar no sea null
+        jugadorAEliminar?.let { jugador ->
+            DialogoEliminar(
+                jugador = jugador,
+                onConfirmar = {
+                    jugadores.remove(jugador)   // la lista se actualiza sola
+                    jugadorAEliminar = null      // cierra el diálogo
+                },
+                onCancelar = { jugadorAEliminar = null }
+            )
+        }
     }
 }
 
@@ -68,12 +97,15 @@ fun PantallaEquipo() {
 @Composable
 fun ListaJugadores(
     jugadores: List<Jugador>,
+    onEliminar: (Jugador) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(modifier = modifier.fillMaxWidth()) {
         // key = id → cada fila tiene identidad estable al borrar/editar
         items(jugadores, key = { it.id }) { jugador ->
-            JugadorItem(jugador = jugador)
+            JugadorItem(jugador = jugador,
+                onEliminarClick = { onEliminar(jugador) } // avisa de QUÉ jugador
+            )
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp),
                 thickness = 1.dp,
@@ -84,8 +116,13 @@ fun ListaJugadores(
 }
 
 // ---------- FILA DE UN JUGADOR ----------
+
 @Composable
-fun JugadorItem(jugador: Jugador, modifier: Modifier = Modifier) {
+fun JugadorItem(
+    jugador: Jugador,
+    onEliminarClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -95,8 +132,6 @@ fun JugadorItem(jugador: Jugador, modifier: Modifier = Modifier) {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar circular con la inicial: mantiene el estilo de la práctica 3
-        // no necesita una foto por jugadora
         Box(
             modifier = Modifier
                 .size(56.dp)
@@ -112,7 +147,12 @@ fun JugadorItem(jugador: Jugador, modifier: Modifier = Modifier) {
             )
         }
 
-        Column(modifier = Modifier.padding(start = 16.dp)) {
+        // weight(1f): los textos ocupan el hueco y empujan los botones a la derecha
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp)
+        ) {
             Text(
                 text = jugador.nickname,
                 fontSize = 20.sp,
@@ -122,15 +162,44 @@ fun JugadorItem(jugador: Jugador, modifier: Modifier = Modifier) {
             Text(text = jugador.nombre, fontSize = 15.sp, color = Color.DarkGray)
             Text(text = jugador.rol, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
         }
+
+        // Botones de operaciones (en el Bloque 4 añadiremos "Editar" aquí)
+        Column {
+            TextButton(onClick = onEliminarClick) {
+                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
-
+// ---------- DIÁLOGO DE CONFIRMACIÓN (Actividad 4) ----------
+@Composable
+fun DialogoEliminar(
+    jugador: Jugador,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,   // tocar fuera o pulsar Atrás = cancelar
+        title = { Text("Eliminar jugador") },
+        text = { Text("¿Estás seguro de que deseas eliminar a ${jugador.nickname}?") },
+        confirmButton = {
+            TextButton(onClick = onConfirmar) {
+                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
 // ---------- PREVIEW ----------
 @Preview(showBackground = true)
 @Composable
 fun JugadorItemPreview() {
     PMDMPractica3EquipoEsportsTheme {
-        JugadorItem(
+        JugadorItem(onEliminarClick = {},
             jugador = Jugador(1, "Alexia Putellas", "La Reina", "Centrocampista")
         )
     }
