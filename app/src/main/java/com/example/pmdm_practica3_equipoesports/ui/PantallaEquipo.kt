@@ -35,14 +35,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedTextField
 @Composable
 fun PantallaEquipo() {
     // Lista observable: al añadir/borrar/editar, la UI se recompone sola
     val jugadores = JugadoresEjemplo.jugadores
     // null = sin diálogo, un jugador = mostrar diálogo para ese jugador
     var jugadorAEliminar by remember { mutableStateOf<Jugador?>(null) }
+    var jugadorAEditar by remember { mutableStateOf<Jugador?>(null) }
 
     Column(
         modifier = Modifier
@@ -76,6 +77,7 @@ fun PantallaEquipo() {
         ListaJugadores(
             jugadores = jugadores,
             onEliminar = { jugador -> jugadorAEliminar = jugador },  // abre el diálogo
+            onEditar = { jugador -> jugadorAEditar = jugador },
             modifier = Modifier.weight(1f)
         )
 
@@ -90,6 +92,19 @@ fun PantallaEquipo() {
                 onCancelar = { jugadorAEliminar = null }
             )
         }
+        jugadorAEditar?.let { jugador ->
+            DialogoEditar(
+                jugador = jugador,
+                onGuardar = { jugadorEditado ->
+                    val posicion = jugadores.indexOfFirst { it.id == jugadorEditado.id }
+                    if (posicion != -1) {
+                        jugadores[posicion] = jugadorEditado   // sustituye → la lista se actualiza
+                    }
+                    jugadorAEditar = null
+                },
+                onCancelar = { jugadorAEditar = null }
+            )
+        }
     }
 }
 
@@ -98,13 +113,15 @@ fun PantallaEquipo() {
 fun ListaJugadores(
     jugadores: List<Jugador>,
     onEliminar: (Jugador) -> Unit,
+    onEditar: (Jugador) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(modifier = modifier.fillMaxWidth()) {
         // key = id → cada fila tiene identidad estable al borrar/editar
         items(jugadores, key = { it.id }) { jugador ->
             JugadorItem(jugador = jugador,
-                onEliminarClick = { onEliminar(jugador) } // avisa de QUÉ jugador
+                onEliminarClick = { onEliminar(jugador) }, // avisa de QUÉ jugador
+                onEditarClick = { onEditar(jugador) }
             )
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp),
@@ -121,6 +138,7 @@ fun ListaJugadores(
 fun JugadorItem(
     jugador: Jugador,
     onEliminarClick: () -> Unit,
+    onEditarClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -165,6 +183,9 @@ fun JugadorItem(
 
         // Botones de operaciones (en el Bloque 4 añadiremos "Editar" aquí)
         Column {
+            TextButton(onClick = onEditarClick) {
+                Text("Editar")
+            }
             TextButton(onClick = onEliminarClick) {
                 Text("Eliminar", color = MaterialTheme.colorScheme.error)
             }
@@ -194,12 +215,83 @@ fun DialogoEliminar(
         }
     )
 }
+// ---------- DIÁLOGO DE EDICIÓN (Actividad 5) ----------
+@Composable
+fun DialogoEditar(
+    jugador: Jugador,
+    onGuardar: (Jugador) -> Unit,
+    onCancelar: () -> Unit
+) {
+    // Los campos empiezan con los datos actuales del jugador
+    var nombre by remember { mutableStateOf(jugador.nombre) }
+    var nickname by remember { mutableStateOf(jugador.nickname) }
+    var rol by remember { mutableStateOf(jugador.rol) }
+    var mostrarError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Editar jugador") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it; mostrarError = false },
+                    label = { Text("Nombre") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it; mostrarError = false },
+                    label = { Text("Nickname") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = rol,
+                    onValueChange = { rol = it; mostrarError = false },
+                    label = { Text("Rol") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (mostrarError) {
+                    Text(
+                        text = "Rellena todos los campos",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (nombre.isBlank() || nickname.isBlank() || rol.isBlank()) {
+                    mostrarError = true
+                } else {
+                    // copy() mantiene el id original y cambia el resto
+                    onGuardar(
+                        jugador.copy(
+                            nombre = nombre.trim(),
+                            nickname = nickname.trim(),
+                            rol = rol.trim()
+                        )
+                    )
+                }
+            }) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) { Text("Cancelar") }
+        }
+    )
+}
 // ---------- PREVIEW ----------
 @Preview(showBackground = true)
 @Composable
 fun JugadorItemPreview() {
     PMDMPractica3EquipoEsportsTheme {
-        JugadorItem(onEliminarClick = {},
+        JugadorItem(onEliminarClick = {}, onEditarClick = {},
             jugador = Jugador(1, "Alexia Putellas", "La Reina", "Centrocampista")
         )
     }
